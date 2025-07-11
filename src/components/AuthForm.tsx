@@ -1,8 +1,10 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,10 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-// import { useToast } from "@/hooks/use-toast"
-import Image from "next/image"
 import { useToast } from "@/hooks/use-toats"
-import bg from "../assets/loginbg/bg.jpg"
+// import { useToast } from "@/hooks/use-toast"
 
 export function AuthForm() {
   const [isLogin, setIsLogin] = useState(true)
@@ -89,28 +89,89 @@ export function AuthForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!validateForm()) return
 
     setIsLoading(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      const endpoint = isLogin ? "https://edunextup3.onrender.com/auth/login" : "https://edunextup3.onrender.com/auth/registration"
 
-    if (isLogin) {
-      toast({
-        title: "Uğurlu giriş!",
-        description: "Xoş gəlmisiniz!",
+      const requestBody = isLogin
+        ? {
+            email: formData.email,
+            password: formData.password,
+            remember_me: formData.rememberMe,
+          }
+        : {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+          }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
       })
-    } else {
-      toast({
-        title: "Qeydiyyat tamamlandı!",
-        description: "Hesabınız uğurla yaradıldı",
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`)
+      }
+
+      if (isLogin) {
+        toast({
+          title: "Uğurlu giriş!",
+          description: "Xoş gəlmisiniz!",
+        })
+
+        if (data.token) {
+          localStorage.setItem("authToken", data.token)
+        }
+      } else {
+        toast({
+          title: "Qeydiyyat tamamlandı!",
+          description: "Hesabınız uğurla yaradıldı",
+        })
+      }
+
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        rememberMe: false,
       })
+
+      router.push("/") // Ana səhifəyə yönləndir
+    } catch (error) {
+      console.error("Auth error:", error)
+
+      let errorMessage = "Bir xəta baş verdi. Yenidən cəhd edin."
+
+      if (error instanceof Error) {
+        // Handle specific error messages from backend
+        if (error.message.includes("email")) {
+          errorMessage = "Bu e-mail artıq istifadə olunur"
+        } else if (error.message.includes("password")) {
+          errorMessage = "Şifrə yanlışdır"
+        } else if (error.message.includes("user")) {
+          errorMessage = "İstifadəçi tapılmadı"
+        } else {
+          errorMessage = error.message
+        }
+      }
+
+      toast({
+        title: "Xəta",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
-    router.push("/") // Ana səhifəyə yönləndir
   }
 
   const handleSocialLogin = (provider: string) => {
@@ -122,14 +183,8 @@ export function AuthForm() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:flex-2 relative overflow-hidden">
-        <Image
-          src={bg}
-          alt="Təhsil platforması"
-          fill
-          className="object-cover"
-          priority
-        />
+      {/* Sol tərəf - Hero Section */}
+      <div className="hidden lg:flex lg:flex-1 relative overflow-hidden bg-gradient-to-br from-blue-600 to-purple-700">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-primary/40" />
         <div className="absolute inset-0 flex items-center justify-center p-12">
           <motion.div
@@ -335,6 +390,7 @@ export function AuthForm() {
                       />
                     </svg>
                   </Button>
+
                   <Button
                     variant="outline"
                     onClick={() => handleSocialLogin("Apple")}
@@ -344,6 +400,7 @@ export function AuthForm() {
                       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                     </svg>
                   </Button>
+
                   <Button
                     variant="outline"
                     onClick={() => handleSocialLogin("Facebook")}
