@@ -1,10 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Phone, MapPin, Globe } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,22 +11,134 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toats"
-// import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import toast from 'react-hot-toast'
+
+// Country and city data
+const countriesData = {
+  azerbaijan: {
+    name: "Azərbaycan",
+    code: "+994",
+    cities: [
+      "Bakı",
+      "Gəncə",
+      "Sumqayıt",
+      "Mingəçevir",
+      "Qəbələ",
+      "Şəki",
+      "Lənkəran",
+      "Naxçıvan",
+      "Şamaxı",
+      "Quba",
+      "İsmayıllı",
+      "Şuşa",
+    ],
+  },
+  turkey: {
+    name: "Türkiye",
+    code: "+90",
+    cities: ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Adana", "Konya", "Şanlıurfa", "Gaziantep", "Kayseri"],
+  },
+  usa: {
+    name: "ABŞ",
+    code: "+1",
+    cities: [
+      "New York",
+      "Los Angeles",
+      "Chicago",
+      "Houston",
+      "Phoenix",
+      "Philadelphia",
+      "San Antonio",
+      "San Diego",
+      "Dallas",
+      "San Jose",
+    ],
+  },
+  germany: {
+    name: "Almaniya",
+    code: "+49",
+    cities: [
+      "Berlin",
+      "Hamburg",
+      "München",
+      "Köln",
+      "Frankfurt",
+      "Stuttgart",
+      "Düsseldorf",
+      "Dortmund",
+      "Essen",
+      "Leipzig",
+    ],
+  },
+  france: {
+    name: "Fransa",
+    code: "+33",
+    cities: [
+      "Paris",
+      "Marseille",
+      "Lyon",
+      "Toulouse",
+      "Nice",
+      "Nantes",
+      "Strasbourg",
+      "Montpellier",
+      "Bordeaux",
+      "Lille",
+    ],
+  },
+  uk: {
+    name: "Böyük Britaniya",
+    code: "+44",
+    cities: [
+      "London",
+      "Birmingham",
+      "Manchester",
+      "Glasgow",
+      "Liverpool",
+      "Leeds",
+      "Sheffield",
+      "Edinburgh",
+      "Bristol",
+      "Cardiff",
+    ],
+  },
+  russia: {
+    name: "Rusiya",
+    code: "+7",
+    cities: [
+      "Moskva",
+      "Sankt-Peterburq",
+      "Novosibirsk",
+      "Yekaterinburq",
+      "Kazan",
+      "Nizhny Novgorod",
+      "Chelyabinsk",
+      "Samara",
+      "Omsk",
+      "Rostov-na-Donu",
+    ],
+  },
+}
 
 export function AuthForm() {
   const [isLogin, setIsLogin] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
+    country: "",
+    city: "",
+    phone: "",
+    gender: "",
     rememberMe: false,
   })
 
   const router = useRouter()
-  const { toast } = useToast()
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -37,11 +148,55 @@ export function AuthForm() {
     }))
   }
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => {
+      const newData = { ...prev, [name]: value }
+
+      // Reset city and update phone code when country changes
+      if (name === "country") {
+        newData.city = ""
+        const countryData = countriesData[value as keyof typeof countriesData]
+        if (countryData && prev.phone.startsWith("+")) {
+          // Replace the country code in phone number
+          const phoneWithoutCode = prev.phone.replace(/^\+\d+\s*/, "")
+          newData.phone = countryData.code + " " + phoneWithoutCode
+        } else if (countryData && !prev.phone.startsWith("+")) {
+          newData.phone = countryData.code + " " + prev.phone
+        }
+      }
+
+      return newData
+    })
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value
+
+    // If country is selected and phone doesn't start with country code, add it
+    if (formData.country && !value.startsWith("+")) {
+      const countryData = countriesData[formData.country as keyof typeof countriesData]
+      if (countryData) {
+        value = countryData.code + " " + value
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, phone: value }))
+  }
+
   const validateForm = () => {
-    if (!isLogin && !formData.name.trim()) {
+    if (!isLogin && !formData.firstName.trim()) {
       toast({
         title: "Xəta",
-        description: "Ad və soyad daxil edin",
+        description: "Ad daxil edin",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    if (!isLogin && !formData.lastName.trim()) {
+      toast({
+        title: "Xəta",
+        description: "Soyad daxil edin",
         variant: "destructive",
       })
       return false
@@ -84,6 +239,45 @@ export function AuthForm() {
       return false
     }
 
+    // Additional validation for registration
+    if (!isLogin) {
+      if (!formData.country) {
+        toast({
+          title: "Xəta",
+          description: "Ölkə seçin",
+          variant: "destructive",
+        })
+        return false
+      }
+
+      if (!formData.city) {
+        toast({
+          title: "Xəta",
+          description: "Şəhər seçin",
+          variant: "destructive",
+        })
+        return false
+      }
+
+      if (!formData.phone.trim()) {
+        toast({
+          title: "Xəta",
+          description: "Telefon nömrəsi daxil edin",
+          variant: "destructive",
+        })
+        return false
+      }
+
+      if (!formData.gender) {
+        toast({
+          title: "Xəta",
+          description: "Cins seçin",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
     return true
   }
 
@@ -94,8 +288,9 @@ export function AuthForm() {
     setIsLoading(true)
 
     try {
-      const endpoint = isLogin ? "https://edunextup3.onrender.com/auth/login" : "https://edunextup3.onrender.com/auth/registration"
-
+      const endpoint = isLogin
+        ? "https://edunextup3.onrender.com/auth/login"
+        : "https://edunextup3.onrender.com/auth/registration"
       const requestBody = isLogin
         ? {
             email: formData.email,
@@ -103,9 +298,16 @@ export function AuthForm() {
             remember_me: formData.rememberMe,
           }
         : {
-            name: formData.name,
+            name: `${formData.firstName} ${formData.lastName}`, // Combined for API
+            // Or send separately if your API supports it:
+            // firstName: formData.firstName,
+            // lastName: formData.lastName,
             email: formData.email,
             password: formData.password,
+            country: formData.country,
+            city: formData.city,
+            phone: formData.phone,
+            gender: formData.gender,
           }
 
       const response = await fetch(endpoint, {
@@ -127,7 +329,6 @@ export function AuthForm() {
           title: "Uğurlu giriş!",
           description: "Xoş gəlmisiniz!",
         })
-
         if (data.token) {
           localStorage.setItem("authToken", data.token)
         }
@@ -139,20 +340,23 @@ export function AuthForm() {
       }
 
       setFormData({
-        name: "",
+        firstName: "",
+        lastName: "",
         email: "",
         password: "",
+        country: "",
+        city: "",
+        phone: "",
+        gender: "",
         rememberMe: false,
       })
 
-      router.push("/") // Ana səhifəyə yönləndir
+      router.push("/")
     } catch (error) {
       console.error("Auth error:", error)
-
       let errorMessage = "Bir xəta baş verdi. Yenidən cəhd edin."
 
       if (error instanceof Error) {
-        // Handle specific error messages from backend
         if (error.message.includes("email")) {
           errorMessage = "Bu e-mail artıq istifadə olunur"
         } else if (error.message.includes("password")) {
@@ -181,11 +385,25 @@ export function AuthForm() {
     })
   }
 
+  const getAvailableCities = () => {
+    if (!formData.country) return []
+    const countryData = countriesData[formData.country as keyof typeof countriesData]
+    return countryData ? countryData.cities : []
+  }
+
   return (
     <div className="min-h-screen flex">
-      {/* Sol tərəf - Hero Section */}
-      <div className="hidden lg:flex lg:flex-1 relative overflow-hidden bg-gradient-to-br from-blue-600 to-purple-700">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-primary/40" />
+      {/* Sol tərəf - Hero Section - 2/3 of screen */}
+      <div className="hidden lg:flex lg:w-2/3 relative overflow-hidden">
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: "url('/images/hero-background.png')",
+          }}
+        />
+        {/* Dark overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60" />
         <div className="absolute inset-0 flex items-center justify-center p-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -220,8 +438,8 @@ export function AuthForm() {
         </div>
       </div>
 
-      {/* Sağ tərəf - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-background to-muted/20">
+      {/* Sağ tərəf - Form - 1/3 of screen */}
+      <div className="flex-1 lg:w-1/3 flex items-center justify-center p-8 bg-gradient-to-br from-background to-muted/20">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -250,7 +468,6 @@ export function AuthForm() {
                 {isLogin ? "Hesabınıza daxil olun" : "Yeni hesab yaradın və öyrənməyə başlayın"}
               </CardDescription>
             </CardHeader>
-
             <CardContent className="space-y-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <AnimatePresence>
@@ -260,26 +477,132 @@ export function AuthForm() {
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="space-y-2"
+                      className="space-y-4"
                     >
-                      <Label htmlFor="name">Ad və Soyad</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="name"
-                          name="name"
-                          type="text"
-                          placeholder="Ad və soyadınızı daxil edin"
-                          value={formData.name}
-                          onChange={handleInputChange}
-                          className="pl-10"
-                          required={!isLogin}
-                        />
+                      {/* First Name Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName">Ad</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="firstName"
+                            name="firstName"
+                            type="text"
+                            placeholder="Adınızı daxil edin"
+                            value={formData.firstName}
+                            onChange={handleInputChange}
+                            className="pl-10"
+                            required={!isLogin}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Last Name Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName">Soyad</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="lastName"
+                            name="lastName"
+                            type="text"
+                            placeholder="Soyadınızı daxil edin"
+                            value={formData.lastName}
+                            onChange={handleInputChange}
+                            className="pl-10"
+                            required={!isLogin}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Country Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="country">Ölkə</Label>
+                        <div className="relative">
+                          <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                          <Select
+                            value={formData.country}
+                            onValueChange={(value) => handleSelectChange("country", value)}
+                          >
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Ölkə seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(countriesData).map(([key, country]) => (
+                                <SelectItem key={key} value={key}>
+                                  {country.name} ({country.code})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* City Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="city">Şəhər</Label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                          <Select
+                            value={formData.city}
+                            onValueChange={(value) => handleSelectChange("city", value)}
+                            disabled={!formData.country}
+                          >
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder={formData.country ? "Şəhər seçin" : "Əvvəl ölkə seçin"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getAvailableCities().map((city) => (
+                                <SelectItem key={city} value={city}>
+                                  {city}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Phone Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Telefon nömrəsi</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="phone"
+                            name="phone"
+                            type="tel"
+                            placeholder={
+                              formData.country
+                                ? `${countriesData[formData.country as keyof typeof countriesData]?.code || ""} 123456789`
+                                : "Telefon nömrəsi"
+                            }
+                            value={formData.phone}
+                            onChange={handlePhoneChange}
+                            className="pl-10"
+                            required={!isLogin}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Gender Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Cins</Label>
+                        <Select value={formData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Cins seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Kişi</SelectItem>
+                            <SelectItem value="female">Qadın</SelectItem>
+                            <SelectItem value="other">Digər</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
+                {/* Email Field */}
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail</Label>
                   <div className="relative">
@@ -297,6 +620,7 @@ export function AuthForm() {
                   </div>
                 </div>
 
+                {/* Password Field */}
                 <div className="space-y-2">
                   <Label htmlFor="password">Şifrə</Label>
                   <div className="relative">
@@ -390,7 +714,6 @@ export function AuthForm() {
                       />
                     </svg>
                   </Button>
-
                   <Button
                     variant="outline"
                     onClick={() => handleSocialLogin("Apple")}
@@ -400,7 +723,6 @@ export function AuthForm() {
                       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                     </svg>
                   </Button>
-
                   <Button
                     variant="outline"
                     onClick={() => handleSocialLogin("Facebook")}
